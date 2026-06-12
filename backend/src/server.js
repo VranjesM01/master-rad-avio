@@ -1,17 +1,6 @@
-const express = require("express");
-const cors = require("cors");
 require("dotenv").config();
 
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-app.get("/", (req, res) => {
-  res.json({
-    message: "Flight AI Recommender backend radi!",
-  });
-});
+const app = require("./app");
 
 const PORT = process.env.PORT || 5000;
 
