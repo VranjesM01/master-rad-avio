@@ -31,6 +31,9 @@ model Airport {
   code      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  departingFlights Flight[] @relation("OriginAirport")
+  arrivingFlights  Flight[] @relation("DestinationAirport")
 }
 
 model Destination {
@@ -46,4 +49,34 @@ model Destination {
   updatedAt   DateTime @updatedAt
 
   @@unique([city, country])
+}
+
+
+model Flight {
+  id                   Int      @id @default(autoincrement())
+  code                 String   @unique
+  airline              String
+  durationMinutes      Int
+  originAirportId      Int
+  destinationAirportId Int
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  originAirport      Airport         @relation("OriginAirport", fields: [originAirportId], references: [id])
+  destinationAirport Airport         @relation("DestinationAirport", fields: [destinationAirportId], references: [id])
+  schedules          FlightSchedule[]
+}
+
+model FlightSchedule {
+  id             Int      @id @default(autoincrement())
+  flightId       Int
+  departureTime  DateTime
+  arrivalTime    DateTime
+  basePrice      Decimal  @db.Decimal(10, 2)
+  currency       String   @default("EUR")
+  availableSeats Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  flight Flight @relation(fields: [flightId], references: [id], onDelete: Cascade)
 }
