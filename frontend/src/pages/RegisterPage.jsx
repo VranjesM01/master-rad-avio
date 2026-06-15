@@ -73,7 +73,7 @@ function RegisterPage() {
               name="firstName"
               value={formData.firstName}
               onChange={handleChange}
-              placeholder="Luka"
+              placeholder="Momcilo"
             />
           </div>
 
@@ -84,7 +84,7 @@ function RegisterPage() {
               name="lastName"
               value={formData.lastName}
               onChange={handleChange}
-              placeholder="Jovanovic"
+              placeholder="Vranjes"
             />
           </div>
 
@@ -95,7 +95,7 @@ function RegisterPage() {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="luka@test.com"
+              placeholder="momcilo@test.com"
             />
           </div>
 

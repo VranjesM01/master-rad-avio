@@ -63,7 +63,7 @@ function LoginPage() {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="luka@test.com"
+              placeholder="momcilo@test.com"
             />
           </div>
 
