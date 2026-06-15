@@ -8,6 +8,8 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ProfilePage from "./pages/ProfilePage";
 import MyBookingsPage from "./pages/MyBookingsPage";
+import AIRecommendationPage from "./pages/AIRecommendationPage";
+import MyRecommendationsPage from "./pages/MyRecommendationsPage";
 import "./App.css";
 
 function App() {
@@ -36,6 +38,24 @@ function App() {
             element={
               <ProtectedRoute>
                 <MyBookingsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/ai-recommendations"
+            element={
+              <ProtectedRoute>
+                <AIRecommendationPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/my-recommendations"
+            element={
+              <ProtectedRoute>
+                <MyRecommendationsPage />
               </ProtectedRoute>
             }
           />

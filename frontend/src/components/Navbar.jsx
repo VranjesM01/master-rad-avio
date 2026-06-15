@@ -22,11 +22,15 @@ function Navbar() {
 
         {isAuthenticated ? (
           <>
+            <Link to="/ai-recommendations">AI preporuke</Link>
+            <Link to="/my-recommendations">Moje AI preporuke</Link>
             <Link to="/my-bookings">Moje rezervacije</Link>
             <Link to="/profile">Profil</Link>
+
             <button className="nav-button" onClick={handleLogout}>
               Odjava
             </button>
+
             <span className="nav-user">{user?.firstName}</span>
           </>
         ) : (

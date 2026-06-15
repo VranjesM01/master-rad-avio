@@ -10,14 +10,18 @@ function HomePage() {
           <h1>Web aplikacija za avionske karte i AI preporuku destinacija</h1>
 
           <p>
-            Aplikacija omogućava korisnicima pretragu avionskih letova, pregled
-            dostupnih termina i kasnije dobijanje preporuka za destinacije na
-            osnovu korisničkih preferencija.
+            Aplikacija omogućava korisnicima pretragu avionskih letova,
+            rezervaciju karata i dobijanje preporuka za destinacije na osnovu
+            korisničkih preferencija pomoću AI modula.
           </p>
 
           <div className="hero-actions">
             <Link className="primary-button" to="/search-flights">
               Pretraži letove
+            </Link>
+
+            <Link className="secondary-button" to="/ai-recommendations">
+              AI preporuka destinacije
             </Link>
           </div>
         </div>
@@ -28,9 +32,10 @@ function HomePage() {
           <ul>
             <li>Pretraga avionskih letova</li>
             <li>Pregled aerodroma i destinacija</li>
-            <li>Rezervacija karata</li>
+            <li>Registracija i prijava korisnika</li>
+            <li>Rezervacija avionskih karata</li>
             <li>AI preporuka destinacija</li>
-            <li>Korisnički i admin deo</li>
+            <li>Istorija rezervacija i preporuka</li>
           </ul>
         </div>
       </section>
