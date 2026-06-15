@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 function SearchFlightsPage() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
   const [airports, setAirports] = useState([]);
   const [from, setFrom] = useState("BEG");
   const [to, setTo] = useState("");
   const [date, setDate] = useState("");
+  const [passengerCount, setPassengerCount] = useState(1);
   const [schedules, setSchedules] = useState([]);
   const [loadingAirports, setLoadingAirports] = useState(true);
   const [loadingFlights, setLoadingFlights] = useState(false);
+  const [bookingScheduleId, setBookingScheduleId] = useState(null);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const fetchAirports = async () => {
@@ -32,6 +40,7 @@ function SearchFlightsPage() {
     event.preventDefault();
 
     setError("");
+    setSuccess("");
     setSchedules([]);
     setLoadingFlights(true);
 
@@ -58,6 +67,47 @@ function SearchFlightsPage() {
       setError("Greška prilikom pretrage letova.");
     } finally {
       setLoadingFlights(false);
+    }
+  };
+
+  const handleBooking = async (scheduleId) => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setBookingScheduleId(scheduleId);
+
+    try {
+      await api.post("/bookings", {
+        scheduleId,
+        passengerCount: Number(passengerCount),
+      });
+
+      setSuccess("Rezervacija je uspešno kreirana.");
+
+      setSchedules((previousSchedules) =>
+        previousSchedules.map((schedule) =>
+          schedule.id === scheduleId
+            ? {
+                ...schedule,
+                availableSeats:
+                  schedule.availableSeats - Number(passengerCount),
+              }
+            : schedule,
+        ),
+      );
+    } catch (error) {
+      console.error(error);
+
+      setError(
+        error.response?.data?.message ||
+          "Greška prilikom kreiranja rezervacije.",
+      );
+    } finally {
+      setBookingScheduleId(null);
     }
   };
 
@@ -124,12 +174,24 @@ function SearchFlightsPage() {
             />
           </div>
 
+          <div className="form-group">
+            <label>Broj putnika</label>
+            <input
+              type="number"
+              min="1"
+              max="9"
+              value={passengerCount}
+              onChange={(event) => setPassengerCount(event.target.value)}
+            />
+          </div>
+
           <button className="primary-button" type="submit">
             Pretraži letove
           </button>
         </form>
 
         {error && <p className="error-message">{error}</p>}
+        {success && <p className="success-message">{success}</p>}
       </section>
 
       <section className="results-section">
@@ -196,6 +258,35 @@ function SearchFlightsPage() {
                 <p>
                   <strong>Dostupna mesta:</strong> {schedule.availableSeats}
                 </p>
+
+                <p>
+                  <strong>Ukupno za {passengerCount} putnika:</strong>{" "}
+                  {(
+                    Number(schedule.basePrice) * Number(passengerCount)
+                  ).toFixed(2)}{" "}
+                  {schedule.currency}
+                </p>
+              </div>
+
+              <div className="booking-actions">
+                <button
+                  className="secondary-button"
+                  onClick={() => handleBooking(schedule.id)}
+                  disabled={
+                    bookingScheduleId === schedule.id ||
+                    schedule.availableSeats < Number(passengerCount)
+                  }
+                >
+                  {bookingScheduleId === schedule.id
+                    ? "Rezervacija..."
+                    : "Rezerviši let"}
+                </button>
+
+                {!isAuthenticated && (
+                  <p className="warning-message">
+                    Za rezervaciju je potrebna prijava.
+                  </p>
+                )}
               </div>
             </article>
           ))}

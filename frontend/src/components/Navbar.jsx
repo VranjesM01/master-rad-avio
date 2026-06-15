@@ -22,6 +22,7 @@ function Navbar() {
 
         {isAuthenticated ? (
           <>
+            <Link to="/my-bookings">Moje rezervacije</Link>
             <Link to="/profile">Profil</Link>
             <button className="nav-button" onClick={handleLogout}>
               Odjava

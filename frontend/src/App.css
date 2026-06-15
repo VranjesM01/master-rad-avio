@@ -410,3 +410,37 @@ a {
     justify-content: center;
   }
 }
+
+.secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  background: #0f172a;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondary-button:hover {
+  background: #1e293b;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.booking-actions {
+  margin-top: 18px;
+}
+
+.warning-message {
+  margin: 10px 0 0;
+  color: #92400e;
+  font-size: 14px;
+  font-weight: 700;
+}
