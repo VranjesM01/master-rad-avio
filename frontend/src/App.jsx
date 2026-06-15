@@ -1,36 +1,19 @@
-import { useEffect, useState } from "react";
-import api from "./services/api";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import HomePage from "./pages/HomePage";
+import SearchFlightsPage from "./pages/SearchFlightsPage";
 import "./App.css";
 
 function App() {
-  const [backendMessage, setBackendMessage] = useState("Učitavanje...");
-
-  useEffect(() => {
-    api
-      .get("/health")
-      .then((response) => {
-        setBackendMessage(response.data.message);
-      })
-      .catch((error) => {
-        console.error(error);
-        setBackendMessage(
-          "Greška: frontend ne može da se poveže sa backendom.",
-        );
-      });
-  }, []);
-
   return (
-    <div className="app-container">
-      <div className="card">
-        <h1>Flight AI Recommender</h1>
-        <p>Web aplikacija za avionske karte i AI preporuku destinacija.</p>
+    <BrowserRouter>
+      <Navbar />
 
-        <div className="backend-box">
-          <strong>Status backend-a:</strong>
-          <p>{backendMessage}</p>
-        </div>
-      </div>
-    </div>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/search-flights" element={<SearchFlightsPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
