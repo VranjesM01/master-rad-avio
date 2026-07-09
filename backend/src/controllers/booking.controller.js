@@ -4,18 +4,6 @@ const createBooking = async (req, res) => {
   try {
     const { scheduleId, passengerCount } = req.body;
 
-    if (!scheduleId) {
-      return res.status(400).json({
-        message: "Termin leta je obavezan.",
-      });
-    }
-
-    if (!passengerCount || Number(passengerCount) < 1) {
-      return res.status(400).json({
-        message: "Broj putnika mora biti najmanje 1.",
-      });
-    }
-
     const booking = await bookingService.createBooking({
       userId: req.user.id,
       scheduleId,
@@ -23,7 +11,7 @@ const createBooking = async (req, res) => {
     });
 
     res.status(201).json({
-      message: "Rezervacija je uspešno kreirana.",
+      message: "Rezervacija je uspešno kreirana i čeka potvrdu plaćanja.",
       data: booking,
     });
   } catch (error) {
@@ -37,7 +25,7 @@ const createBooking = async (req, res) => {
 
 const getMyBookings = async (req, res) => {
   try {
-    const bookings = await bookingService.getUserBookings(req.user.id);
+    const bookings = await bookingService.getMyBookings(req.user.id);
 
     res.json({
       message: "Rezervacije su uspešno učitane.",
@@ -74,8 +62,31 @@ const cancelBooking = async (req, res) => {
   }
 };
 
+const confirmBookingPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const booking = await bookingService.confirmBookingPayment({
+      bookingId: id,
+      userId: req.user.id,
+    });
+
+    res.json({
+      message: "Plaćanje je uspešno potvrđeno.",
+      data: booking,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(error.statusCode || 500).json({
+      message: error.message || "Greška prilikom potvrde plaćanja.",
+    });
+  }
+};
+
 module.exports = {
   createBooking,
   getMyBookings,
   cancelBooking,
+  confirmBookingPayment,
 };

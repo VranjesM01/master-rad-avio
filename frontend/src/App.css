@@ -843,3 +843,25 @@ a {
     flex-direction: column;
   }
 }
+.status-pending {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 700;
+}
+
+.booking-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 170px;
+}
+
+@media (max-width: 700px) {
+  .booking-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

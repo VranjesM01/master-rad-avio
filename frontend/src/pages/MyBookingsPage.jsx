@@ -14,12 +14,45 @@ function MyBookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState(null);
+  const [payingId, setPayingId] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadInitialBookings() {
+      try {
+        const response = await api.get("/bookings/my");
+
+        if (!ignore) {
+          setBookings(response.data.data || []);
+        }
+      } catch (error) {
+        console.error(error);
+
+        if (!ignore) {
+          setError(
+            error.response?.data?.message ||
+              "Greška prilikom učitavanja rezervacija.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadInitialBookings();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   const fetchBookings = async () => {
     try {
-      setLoading(true);
       setError("");
 
       const response = await api.get("/bookings/my");
@@ -27,18 +60,42 @@ function MyBookingsPage() {
       setBookings(response.data.data || []);
     } catch (error) {
       console.error(error);
+
       setError(
         error.response?.data?.message ||
           "Greška prilikom učitavanja rezervacija.",
       );
-    } finally {
-      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchBookings();
-  }, []);
+  const handlePayBooking = async (bookingId) => {
+    const confirmed = window.confirm(
+      "Da li želite da potvrdite simulirano plaćanje za ovu rezervaciju?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setPayingId(bookingId);
+      setMessage("");
+      setError("");
+
+      const response = await api.patch(`/bookings/${bookingId}/pay`);
+
+      setMessage(response.data.message);
+      await fetchBookings();
+    } catch (error) {
+      console.error(error);
+
+      setError(
+        error.response?.data?.message || "Greška prilikom potvrde plaćanja.",
+      );
+    } finally {
+      setPayingId(null);
+    }
+  };
 
   const handleCancelBooking = async (bookingId) => {
     const confirmed = window.confirm(
@@ -60,6 +117,7 @@ function MyBookingsPage() {
       await fetchBookings();
     } catch (error) {
       console.error(error);
+
       setError(
         error.response?.data?.message ||
           "Greška prilikom otkazivanja rezervacije.",
@@ -69,14 +127,26 @@ function MyBookingsPage() {
     }
   };
 
+  const getStatusClass = (status) => {
+    if (status === "CANCELLED") {
+      return "status-cancelled";
+    }
+
+    if (status === "PENDING") {
+      return "status-pending";
+    }
+
+    return "status-confirmed";
+  };
+
   return (
     <main className="page">
       <section className="admin-page-header">
         <div>
           <h1>Moje rezervacije</h1>
           <p>
-            Ovde možete pogledati svoje rezervacije i otkazati aktivne
-            rezervacije.
+            Ovde možete pogledati svoje rezervacije, potvrditi simulirano
+            plaćanje i otkazati aktivne rezervacije.
           </p>
         </div>
       </section>
@@ -96,6 +166,9 @@ function MyBookingsPage() {
               const flight = schedule?.flight;
               const origin = flight?.originAirport;
               const destination = flight?.destinationAirport;
+
+              const isPending = booking.status === "PENDING";
+              const isConfirmed = booking.status === "CONFIRMED";
               const isCancelled = booking.status === "CANCELLED";
 
               return (
@@ -138,28 +211,39 @@ function MyBookingsPage() {
 
                     <p>
                       <strong>Status:</strong>{" "}
-                      <span
-                        className={
-                          isCancelled ? "status-cancelled" : "status-confirmed"
-                        }
-                      >
+                      <span className={getStatusClass(booking.status)}>
                         {booking.status}
                       </span>
                     </p>
                   </div>
 
-                  {!isCancelled && (
-                    <button
-                      type="button"
-                      className="danger-button"
-                      onClick={() => handleCancelBooking(booking.id)}
-                      disabled={cancellingId === booking.id}
-                    >
-                      {cancellingId === booking.id
-                        ? "Otkazivanje..."
-                        : "Otkaži rezervaciju"}
-                    </button>
-                  )}
+                  <div className="booking-actions">
+                    {isPending && (
+                      <button
+                        type="button"
+                        className="small-button"
+                        onClick={() => handlePayBooking(booking.id)}
+                        disabled={payingId === booking.id}
+                      >
+                        {payingId === booking.id
+                          ? "Potvrđivanje..."
+                          : "Potvrdi plaćanje"}
+                      </button>
+                    )}
+
+                    {(isPending || isConfirmed) && !isCancelled && (
+                      <button
+                        type="button"
+                        className="danger-button"
+                        onClick={() => handleCancelBooking(booking.id)}
+                        disabled={cancellingId === booking.id}
+                      >
+                        {cancellingId === booking.id
+                          ? "Otkazivanje..."
+                          : "Otkaži rezervaciju"}
+                      </button>
+                    )}
+                  </div>
                 </article>
               );
             })}

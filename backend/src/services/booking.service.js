@@ -3,6 +3,18 @@ const prisma = require("../config/prisma");
 const createBooking = async ({ userId, scheduleId, passengerCount }) => {
   const passengers = Number(passengerCount);
 
+  if (!scheduleId) {
+    const error = new Error("Termin leta je obavezan.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!passengers || passengers < 1) {
+    const error = new Error("Broj putnika mora biti najmanje 1.");
+    error.statusCode = 400;
+    throw error;
+  }
+
   return await prisma.$transaction(async (tx) => {
     const schedule = await tx.flightSchedule.findUnique({
       where: {
@@ -39,7 +51,7 @@ const createBooking = async ({ userId, scheduleId, passengerCount }) => {
         passengerCount: passengers,
         totalPrice,
         currency: schedule.currency,
-        status: "CONFIRMED",
+        status: "PENDING",
       },
       include: {
         schedule: {
@@ -70,7 +82,7 @@ const createBooking = async ({ userId, scheduleId, passengerCount }) => {
   });
 };
 
-const getUserBookings = async (userId) => {
+const getMyBookings = async (userId) => {
   return await prisma.booking.findMany({
     where: {
       userId: Number(userId),
@@ -88,10 +100,11 @@ const getUserBookings = async (userId) => {
       },
     },
     orderBy: {
-      createdAt: "desc",
+      id: "desc",
     },
   });
 };
+
 const cancelBooking = async ({ bookingId, userId }) => {
   return await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findFirst({
@@ -152,8 +165,57 @@ const cancelBooking = async ({ bookingId, userId }) => {
   });
 };
 
+const confirmBookingPayment = async ({ bookingId, userId }) => {
+  const booking = await prisma.booking.findFirst({
+    where: {
+      id: Number(bookingId),
+      userId: Number(userId),
+    },
+  });
+
+  if (!booking) {
+    const error = new Error("Rezervacija nije pronađena.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (booking.status === "CANCELLED") {
+    const error = new Error("Otkazana rezervacija ne može biti plaćena.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (booking.status === "CONFIRMED") {
+    const error = new Error("Rezervacija je već potvrđena.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return await prisma.booking.update({
+    where: {
+      id: Number(bookingId),
+    },
+    data: {
+      status: "CONFIRMED",
+    },
+    include: {
+      schedule: {
+        include: {
+          flight: {
+            include: {
+              originAirport: true,
+              destinationAirport: true,
+            },
+          },
+        },
+      },
+    },
+  });
+};
+
 module.exports = {
   createBooking,
-  getUserBookings,
+  getMyBookings,
   cancelBooking,
+  confirmBookingPayment,
 };
