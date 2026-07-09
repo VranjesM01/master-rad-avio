@@ -18,7 +18,7 @@ function AdminDashboardPage() {
           <p>Dodavanje, izmena i brisanje aerodroma.</p>
         </Link>
 
-        <Link className="admin-card disabled-card" to="/admin/destinations">
+        <Link className="admin-card" to="/admin/destinations">
           <h2>Destinacije</h2>
           <p>Upravljanje destinacijama za AI preporuke.</p>
         </Link>

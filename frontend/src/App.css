@@ -778,3 +778,18 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+.auth-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #cfe1dd;
+  font-family: inherit;
+  font-size: 15px;
+  resize: vertical;
+}
+
+.auth-form textarea:focus {
+  outline: none;
+  border-color: #0f766e;
+}
