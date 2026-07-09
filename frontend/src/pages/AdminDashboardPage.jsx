@@ -28,7 +28,7 @@ function AdminDashboardPage() {
           <p>Upravljanje avio-linijama između aerodroma.</p>
         </Link>
 
-        <Link className="admin-card disabled-card" to="/admin/schedules">
+        <Link className="admin-card" to="/admin/schedules">
           <h2>Termini letova</h2>
           <p>Upravljanje konkretnim terminima letova.</p>
         </Link>

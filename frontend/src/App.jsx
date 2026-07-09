@@ -16,6 +16,7 @@ import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminAirportsPage from "./pages/AdminAirportsPage";
 import AdminDestinationsPage from "./pages/AdminDestinationsPage";
 import AdminFlightsPage from "./pages/AdminFlightsPage";
+import AdminSchedulesPage from "./pages/AdminSchedulesPage";
 
 import { AuthProvider } from "./context/AuthContext";
 
@@ -101,6 +102,15 @@ function App() {
             element={
               <AdminRoute>
                 <AdminFlightsPage />
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/schedules"
+            element={
+              <AdminRoute>
+                <AdminSchedulesPage />
               </AdminRoute>
             }
           />
