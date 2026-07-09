@@ -793,3 +793,53 @@ a {
   outline: none;
   border-color: #0f766e;
 }
+
+.booking-list {
+  display: grid;
+  gap: 18px;
+}
+
+.booking-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #dcefeb;
+  box-shadow: 0 12px 30px rgba(13, 67, 60, 0.08);
+}
+
+.booking-card h2 {
+  margin-bottom: 12px;
+  color: #12332f;
+}
+
+.booking-card p {
+  margin: 6px 0;
+  color: #334d49;
+}
+
+.status-confirmed {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+}
+
+.status-cancelled {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .booking-card {
+    flex-direction: column;
+  }
+}

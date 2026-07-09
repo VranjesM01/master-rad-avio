@@ -52,7 +52,30 @@ const getMyBookings = async (req, res) => {
   }
 };
 
+const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const booking = await bookingService.cancelBooking({
+      bookingId: id,
+      userId: req.user.id,
+    });
+
+    res.json({
+      message: "Rezervacija je uspešno otkazana.",
+      data: booking,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(error.statusCode || 500).json({
+      message: error.message || "Greška prilikom otkazivanja rezervacije.",
+    });
+  }
+};
+
 module.exports = {
   createBooking,
   getMyBookings,
+  cancelBooking,
 };

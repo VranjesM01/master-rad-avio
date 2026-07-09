@@ -92,8 +92,68 @@ const getUserBookings = async (userId) => {
     },
   });
 };
+const cancelBooking = async ({ bookingId, userId }) => {
+  return await prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findFirst({
+      where: {
+        id: Number(bookingId),
+        userId: Number(userId),
+      },
+      include: {
+        schedule: true,
+      },
+    });
+
+    if (!booking) {
+      const error = new Error("Rezervacija nije pronađena.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (booking.status === "CANCELLED") {
+      const error = new Error("Rezervacija je već otkazana.");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const cancelledBooking = await tx.booking.update({
+      where: {
+        id: Number(bookingId),
+      },
+      data: {
+        status: "CANCELLED",
+      },
+      include: {
+        schedule: {
+          include: {
+            flight: {
+              include: {
+                originAirport: true,
+                destinationAirport: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    await tx.flightSchedule.update({
+      where: {
+        id: booking.scheduleId,
+      },
+      data: {
+        availableSeats: {
+          increment: booking.passengerCount,
+        },
+      },
+    });
+
+    return cancelledBooking;
+  });
+};
 
 module.exports = {
   createBooking,
   getUserBookings,
+  cancelBooking,
 };

@@ -1,114 +1,171 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 
+function formatDateTime(value) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("sr-RS", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
 function MyBookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cancellingId, setCancellingId] = useState(null);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const response = await api.get("/bookings/my");
-        setBookings(response.data.data);
-      } catch (error) {
-        console.error(error);
-        setError("Greška prilikom učitavanja rezervacija.");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
+      const response = await api.get("/bookings/my");
+
+      setBookings(response.data.data || []);
+    } catch (error) {
+      console.error(error);
+      setError(
+        error.response?.data?.message ||
+          "Greška prilikom učitavanja rezervacija.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchBookings();
   }, []);
 
-  const formatDateTime = (dateTime) => {
-    return new Date(dateTime).toLocaleString("sr-RS", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+  const handleCancelBooking = async (bookingId) => {
+    const confirmed = window.confirm(
+      "Da li ste sigurni da želite da otkažete ovu rezervaciju?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setCancellingId(bookingId);
+      setMessage("");
+      setError("");
+
+      const response = await api.patch(`/bookings/${bookingId}/cancel`);
+
+      setMessage(response.data.message);
+      await fetchBookings();
+    } catch (error) {
+      console.error(error);
+      setError(
+        error.response?.data?.message ||
+          "Greška prilikom otkazivanja rezervacije.",
+      );
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   return (
     <main className="page">
-      <section className="section-header">
-        <span className="hero-label">Moje rezervacije</span>
-        <h1>Pregled rezervisanih letova</h1>
-        <p>
-          Na ovoj stranici prikazuju se rezervacije trenutno prijavljenog
-          korisnika.
-        </p>
+      <section className="admin-page-header">
+        <div>
+          <h1>Moje rezervacije</h1>
+          <p>
+            Ovde možete pogledati svoje rezervacije i otkazati aktivne
+            rezervacije.
+          </p>
+        </div>
       </section>
 
-      {loading && <p>Učitavanje rezervacija...</p>}
+      <section className="content-card">
+        {message && <p className="success-message">{message}</p>}
+        {error && <p className="error-message">{error}</p>}
 
-      {error && <p className="error-message">{error}</p>}
+        {loading ? (
+          <p>Učitavanje rezervacija...</p>
+        ) : bookings.length === 0 ? (
+          <p>Nemate nijednu rezervaciju.</p>
+        ) : (
+          <div className="booking-list">
+            {bookings.map((booking) => {
+              const schedule = booking.schedule;
+              const flight = schedule?.flight;
+              const origin = flight?.originAirport;
+              const destination = flight?.destinationAirport;
+              const isCancelled = booking.status === "CANCELLED";
 
-      {!loading && bookings.length === 0 && (
-        <p className="muted-text">Još uvek nemaš rezervisanih letova.</p>
-      )}
+              return (
+                <article className="booking-card" key={booking.id}>
+                  <div>
+                    <h2>
+                      {flight?.code || "Let"} — {origin?.code || "?"} →{" "}
+                      {destination?.code || "?"}
+                    </h2>
 
-      <div className="flight-grid">
-        {bookings.map((booking) => (
-          <article className="flight-card" key={booking.id}>
-            <div className="flight-card-header">
-              <div>
-                <h3>{booking.schedule.flight.code}</h3>
-                <p>{booking.schedule.flight.airline}</p>
-              </div>
+                    <p>
+                      <strong>Avio-kompanija:</strong>{" "}
+                      {flight?.airline || "Nije dostupno"}
+                    </p>
 
-              <span className="price-badge">
-                {Number(booking.totalPrice).toFixed(2)} {booking.currency}
-              </span>
-            </div>
+                    <p>
+                      <strong>Ruta:</strong> {origin?.city || "?"},{" "}
+                      {origin?.country || "?"} → {destination?.city || "?"},{" "}
+                      {destination?.country || "?"}
+                    </p>
 
-            <div className="route-box">
-              <div>
-                <span>Od</span>
-                <strong>
-                  {booking.schedule.flight.originAirport.city} (
-                  {booking.schedule.flight.originAirport.code})
-                </strong>
-              </div>
+                    <p>
+                      <strong>Polazak:</strong>{" "}
+                      {formatDateTime(schedule?.departureTime)}
+                    </p>
 
-              <div className="route-line">→</div>
+                    <p>
+                      <strong>Dolazak:</strong>{" "}
+                      {formatDateTime(schedule?.arrivalTime)}
+                    </p>
 
-              <div>
-                <span>Do</span>
-                <strong>
-                  {booking.schedule.flight.destinationAirport.city} (
-                  {booking.schedule.flight.destinationAirport.code})
-                </strong>
-              </div>
-            </div>
+                    <p>
+                      <strong>Broj putnika:</strong> {booking.passengerCount}
+                    </p>
 
-            <div className="flight-details">
-              <p>
-                <strong>Polazak:</strong>{" "}
-                {formatDateTime(booking.schedule.departureTime)}
-              </p>
+                    <p>
+                      <strong>Ukupna cena:</strong> {booking.totalPrice}{" "}
+                      {booking.currency}
+                    </p>
 
-              <p>
-                <strong>Dolazak:</strong>{" "}
-                {formatDateTime(booking.schedule.arrivalTime)}
-              </p>
+                    <p>
+                      <strong>Status:</strong>{" "}
+                      <span
+                        className={
+                          isCancelled ? "status-cancelled" : "status-confirmed"
+                        }
+                      >
+                        {booking.status}
+                      </span>
+                    </p>
+                  </div>
 
-              <p>
-                <strong>Broj putnika:</strong> {booking.passengerCount}
-              </p>
-
-              <p>
-                <strong>Status:</strong> {booking.status}
-              </p>
-
-              <p>
-                <strong>Datum rezervacije:</strong>{" "}
-                {formatDateTime(booking.createdAt)}
-              </p>
-            </div>
-          </article>
-        ))}
-      </div>
+                  {!isCancelled && (
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={() => handleCancelBooking(booking.id)}
+                      disabled={cancellingId === booking.id}
+                    >
+                      {cancellingId === booking.id
+                        ? "Otkazivanje..."
+                        : "Otkaži rezervaciju"}
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </main>
   );
 }
