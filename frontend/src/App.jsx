@@ -1,7 +1,9 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { AuthProvider } from "./context/AuthContext";
+import AdminRoute from "./components/AdminRoute";
+
 import HomePage from "./pages/HomePage";
 import SearchFlightsPage from "./pages/SearchFlightsPage";
 import LoginPage from "./pages/LoginPage";
@@ -10,6 +12,11 @@ import ProfilePage from "./pages/ProfilePage";
 import MyBookingsPage from "./pages/MyBookingsPage";
 import AIRecommendationPage from "./pages/AIRecommendationPage";
 import MyRecommendationsPage from "./pages/MyRecommendationsPage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
+import AdminAirportsPage from "./pages/AdminAirportsPage";
+
+import { AuthProvider } from "./context/AuthContext";
+
 import "./App.css";
 
 function App() {
@@ -57,6 +64,24 @@ function App() {
               <ProtectedRoute>
                 <MyRecommendationsPage />
               </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminDashboardPage />
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/airports"
+            element={
+              <AdminRoute>
+                <AdminAirportsPage />
+              </AdminRoute>
             }
           />
         </Routes>

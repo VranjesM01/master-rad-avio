@@ -1,14 +1,8 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
 
   return (
     <nav className="navbar">
@@ -20,23 +14,32 @@ function Navbar() {
         <Link to="/">Početna</Link>
         <Link to="/search-flights">Pretraga letova</Link>
 
-        {isAuthenticated ? (
+        {isAuthenticated && (
           <>
             <Link to="/ai-recommendations">AI preporuke</Link>
             <Link to="/my-recommendations">Moje AI preporuke</Link>
             <Link to="/my-bookings">Moje rezervacije</Link>
             <Link to="/profile">Profil</Link>
-
-            <button className="nav-button" onClick={handleLogout}>
-              Odjava
-            </button>
-
-            <span className="nav-user">{user?.firstName}</span>
           </>
-        ) : (
+        )}
+
+        {isAuthenticated && user?.role === "ADMIN" && (
+          <Link to="/admin">Admin panel</Link>
+        )}
+
+        {!isAuthenticated ? (
           <>
             <Link to="/login">Prijava</Link>
             <Link to="/register">Registracija</Link>
+          </>
+        ) : (
+          <>
+            <span className="nav-user">
+              {user?.firstName} {user?.role === "ADMIN" ? "(admin)" : ""}
+            </span>
+            <button className="nav-button" onClick={logout}>
+              Odjava
+            </button>
           </>
         )}
       </div>
