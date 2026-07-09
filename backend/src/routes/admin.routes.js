@@ -5,10 +5,21 @@ const {
   createAirport,
   updateAirport,
   deleteAirport,
+
   getAllDestinations,
   createDestination,
   updateDestination,
   deleteDestination,
+
+  getAllFlights,
+  createFlight,
+  updateFlight,
+  deleteFlight,
+
+  getAllSchedules,
+  createSchedule,
+  updateSchedule,
+  deleteSchedule,
 } = require("../controllers/admin.controller");
 
 const {
@@ -32,5 +43,17 @@ router.get("/destinations", getAllDestinations);
 router.post("/destinations", createDestination);
 router.put("/destinations/:id", updateDestination);
 router.delete("/destinations/:id", deleteDestination);
+
+/* Flight admin routes */
+router.get("/flights", getAllFlights);
+router.post("/flights", createFlight);
+router.put("/flights/:id", updateFlight);
+router.delete("/flights/:id", deleteFlight);
+
+/* Flight schedule admin routes */
+router.get("/schedules", getAllSchedules);
+router.post("/schedules", createSchedule);
+router.put("/schedules/:id", updateSchedule);
+router.delete("/schedules/:id", deleteSchedule);
 
 module.exports = router;

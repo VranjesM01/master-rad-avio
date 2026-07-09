@@ -246,13 +246,355 @@ const deleteDestination = async (req, res) => {
   }
 };
 
+/* =========================
+   FLIGHT CONTROLLERS
+========================= */
+
+const getAllFlights = async (req, res) => {
+  try {
+    const flights = await adminService.getAllFlights();
+
+    res.json({
+      message: "Letovi su uspešno učitani.",
+      data: flights,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Greška prilikom učitavanja letova.",
+    });
+  }
+};
+
+const createFlight = async (req, res) => {
+  try {
+    const {
+      code,
+      airline,
+      durationMinutes,
+      originAirportId,
+      destinationAirportId,
+    } = req.body;
+
+    if (
+      !code ||
+      !airline ||
+      !durationMinutes ||
+      !originAirportId ||
+      !destinationAirportId
+    ) {
+      return res.status(400).json({
+        message: "Sva polja su obavezna.",
+      });
+    }
+
+    if (Number(originAirportId) === Number(destinationAirportId)) {
+      return res.status(400).json({
+        message: "Polazni i dolazni aerodrom ne mogu biti isti.",
+      });
+    }
+
+    const flight = await adminService.createFlight(req.body);
+
+    res.status(201).json({
+      message: "Let je uspešno dodat.",
+      data: flight,
+    });
+  } catch (error) {
+    console.error(error);
+
+    if (error.code === "P2002") {
+      return res.status(409).json({
+        message: "Let sa ovom šifrom već postoji.",
+      });
+    }
+
+    if (error.code === "P2003") {
+      return res.status(400).json({
+        message: "Polazni ili dolazni aerodrom ne postoji.",
+      });
+    }
+
+    res.status(500).json({
+      message: "Greška prilikom dodavanja leta.",
+    });
+  }
+};
+
+const updateFlight = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      code,
+      airline,
+      durationMinutes,
+      originAirportId,
+      destinationAirportId,
+    } = req.body;
+
+    if (
+      !code ||
+      !airline ||
+      !durationMinutes ||
+      !originAirportId ||
+      !destinationAirportId
+    ) {
+      return res.status(400).json({
+        message: "Sva polja su obavezna.",
+      });
+    }
+
+    if (Number(originAirportId) === Number(destinationAirportId)) {
+      return res.status(400).json({
+        message: "Polazni i dolazni aerodrom ne mogu biti isti.",
+      });
+    }
+
+    const flight = await adminService.updateFlight(id, req.body);
+
+    res.json({
+      message: "Let je uspešno izmenjen.",
+      data: flight,
+    });
+  } catch (error) {
+    console.error(error);
+
+    if (error.code === "P2025") {
+      return res.status(404).json({
+        message: "Let nije pronađen.",
+      });
+    }
+
+    if (error.code === "P2002") {
+      return res.status(409).json({
+        message: "Let sa ovom šifrom već postoji.",
+      });
+    }
+
+    if (error.code === "P2003") {
+      return res.status(400).json({
+        message: "Polazni ili dolazni aerodrom ne postoji.",
+      });
+    }
+
+    res.status(500).json({
+      message: "Greška prilikom izmene leta.",
+    });
+  }
+};
+
+const deleteFlight = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await adminService.deleteFlight(id);
+
+    res.json({
+      message: "Let je uspešno obrisan.",
+    });
+  } catch (error) {
+    console.error(error);
+
+    if (error.code === "P2025") {
+      return res.status(404).json({
+        message: "Let nije pronađen.",
+      });
+    }
+
+    res.status(500).json({
+      message: "Greška prilikom brisanja leta.",
+    });
+  }
+};
+
+/* =========================
+   FLIGHT SCHEDULE CONTROLLERS
+========================= */
+
+const getAllSchedules = async (req, res) => {
+  try {
+    const schedules = await adminService.getAllSchedules();
+
+    res.json({
+      message: "Termini letova su uspešno učitani.",
+      data: schedules,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Greška prilikom učitavanja termina letova.",
+    });
+  }
+};
+
+const createSchedule = async (req, res) => {
+  try {
+    const {
+      flightId,
+      departureTime,
+      arrivalTime,
+      basePrice,
+      currency,
+      availableSeats,
+    } = req.body;
+
+    if (
+      !flightId ||
+      !departureTime ||
+      !arrivalTime ||
+      !basePrice ||
+      availableSeats === undefined
+    ) {
+      return res.status(400).json({
+        message: "Sva obavezna polja moraju biti popunjena.",
+      });
+    }
+
+    if (new Date(arrivalTime) <= new Date(departureTime)) {
+      return res.status(400).json({
+        message: "Vreme dolaska mora biti posle vremena polaska.",
+      });
+    }
+
+    const schedule = await adminService.createSchedule({
+      flightId,
+      departureTime,
+      arrivalTime,
+      basePrice,
+      currency,
+      availableSeats,
+    });
+
+    res.status(201).json({
+      message: "Termin leta je uspešno dodat.",
+      data: schedule,
+    });
+  } catch (error) {
+    console.error(error);
+
+    if (error.code === "P2003") {
+      return res.status(400).json({
+        message: "Let za koji dodajete termin ne postoji.",
+      });
+    }
+
+    res.status(500).json({
+      message: "Greška prilikom dodavanja termina leta.",
+    });
+  }
+};
+
+const updateSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const {
+      flightId,
+      departureTime,
+      arrivalTime,
+      basePrice,
+      currency,
+      availableSeats,
+    } = req.body;
+
+    if (
+      !flightId ||
+      !departureTime ||
+      !arrivalTime ||
+      !basePrice ||
+      availableSeats === undefined
+    ) {
+      return res.status(400).json({
+        message: "Sva obavezna polja moraju biti popunjena.",
+      });
+    }
+
+    if (new Date(arrivalTime) <= new Date(departureTime)) {
+      return res.status(400).json({
+        message: "Vreme dolaska mora biti posle vremena polaska.",
+      });
+    }
+
+    const schedule = await adminService.updateSchedule(id, {
+      flightId,
+      departureTime,
+      arrivalTime,
+      basePrice,
+      currency,
+      availableSeats,
+    });
+
+    res.json({
+      message: "Termin leta je uspešno izmenjen.",
+      data: schedule,
+    });
+  } catch (error) {
+    console.error(error);
+
+    if (error.code === "P2025") {
+      return res.status(404).json({
+        message: "Termin leta nije pronađen.",
+      });
+    }
+
+    if (error.code === "P2003") {
+      return res.status(400).json({
+        message: "Let za koji dodajete termin ne postoji.",
+      });
+    }
+
+    res.status(500).json({
+      message: "Greška prilikom izmene termina leta.",
+    });
+  }
+};
+
+const deleteSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await adminService.deleteSchedule(id);
+
+    res.json({
+      message: "Termin leta je uspešno obrisan.",
+    });
+  } catch (error) {
+    console.error(error);
+
+    if (error.code === "P2025") {
+      return res.status(404).json({
+        message: "Termin leta nije pronađen.",
+      });
+    }
+
+    res.status(500).json({
+      message:
+        "Termin leta ne može biti obrisan ako je povezan sa rezervacijama.",
+    });
+  }
+};
+
 module.exports = {
   getAllAirports,
   createAirport,
   updateAirport,
   deleteAirport,
+
   getAllDestinations,
   createDestination,
   updateDestination,
   deleteDestination,
+
+  getAllFlights,
+  createFlight,
+  updateFlight,
+  deleteFlight,
+
+  getAllSchedules,
+  createSchedule,
+  updateSchedule,
+  deleteSchedule,
 };
