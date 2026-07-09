@@ -23,7 +23,7 @@ function AdminDashboardPage() {
           <p>Upravljanje destinacijama za AI preporuke.</p>
         </Link>
 
-        <Link className="admin-card disabled-card" to="/admin/flights">
+        <Link className="admin-card" to="/admin/flights">
           <h2>Letovi</h2>
           <p>Upravljanje avio-linijama između aerodroma.</p>
         </Link>

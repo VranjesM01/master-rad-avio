@@ -15,6 +15,7 @@ import MyRecommendationsPage from "./pages/MyRecommendationsPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminAirportsPage from "./pages/AdminAirportsPage";
 import AdminDestinationsPage from "./pages/AdminDestinationsPage";
+import AdminFlightsPage from "./pages/AdminFlightsPage";
 
 import { AuthProvider } from "./context/AuthContext";
 
@@ -85,11 +86,21 @@ function App() {
               </AdminRoute>
             }
           />
+
           <Route
             path="/admin/destinations"
             element={
               <AdminRoute>
                 <AdminDestinationsPage />
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/flights"
+            element={
+              <AdminRoute>
+                <AdminFlightsPage />
               </AdminRoute>
             }
           />
