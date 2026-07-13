@@ -10,7 +10,7 @@ const { authenticate } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
-router.get("/questions", getQuestions);
+router.get("/questions", authenticate, getQuestions);
 router.post("/", authenticate, createRecommendation);
 router.get("/my", authenticate, getMyRecommendations);
 

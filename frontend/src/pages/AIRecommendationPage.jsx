@@ -1,223 +1,231 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 function AIRecommendationPage() {
+  const navigate = useNavigate();
+
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
-  const [questionsSource, setQuestionsSource] = useState("");
   const [loadingQuestions, setLoadingQuestions] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchQuestions = async () => {
+    let ignore = false;
+
+    async function loadQuestions() {
       try {
         const response = await api.get("/recommendations/questions");
 
-        setQuestions(response.data.data);
-        setQuestionsSource(response.data.source);
+        if (!ignore) {
+          setQuestions(response.data.data || []);
+        }
       } catch (error) {
         console.error(error);
-        setError("Greška prilikom učitavanja AI pitanja.");
-      } finally {
-        setLoadingQuestions(false);
-      }
-    };
 
-    fetchQuestions();
+        if (!ignore) {
+          setError(
+            error.response?.data?.message ||
+              "Greška prilikom učitavanja AI pitanja.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingQuestions(false);
+        }
+      }
+    }
+
+    loadQuestions();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
-  const handleSingleChoice = (questionId, value) => {
-    setAnswers((previousAnswers) => ({
-      ...previousAnswers,
+  const handleSingleAnswer = (questionId, value) => {
+    setAnswers((currentAnswers) => ({
+      ...currentAnswers,
       [questionId]: value,
     }));
   };
 
-  const handleMultipleChoice = (questionId, option) => {
-    setAnswers((previousAnswers) => {
-      const currentValues = previousAnswers[questionId] || [];
+  const handleMultipleAnswer = (questionId, option) => {
+    setAnswers((currentAnswers) => {
+      const currentValues = currentAnswers[questionId] || [];
 
-      const alreadySelected = currentValues.includes(option);
-
-      const updatedValues = alreadySelected
-        ? currentValues.filter((value) => value !== option)
-        : [...currentValues, option];
-
-      return {
-        ...previousAnswers,
-        [questionId]: updatedValues,
-      };
-    });
-  };
-
-  const isFormValid = () => {
-    return questions.every((question) => {
-      const answer = answers[question.id];
-
-      if (question.type === "multiple_choice") {
-        return Array.isArray(answer) && answer.length > 0;
+      if (currentValues.includes(option)) {
+        return {
+          ...currentAnswers,
+          [questionId]: currentValues.filter((item) => item !== option),
+        };
       }
 
-      return Boolean(answer);
+      return {
+        ...currentAnswers,
+        [questionId]: [...currentValues, option],
+      };
     });
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    setError("");
-    setResult(null);
-
-    if (!isFormValid()) {
-      setError("Odgovori na sva pitanja pre generisanja preporuke.");
-      return;
-    }
-
-    setGenerating(true);
-
     try {
+      setSubmitting(true);
+      setMessage("");
+      setError("");
+      setResult(null);
+
       const response = await api.post("/recommendations", {
         answers,
       });
 
       setResult(response.data.data);
+      setMessage(response.data.message);
     } catch (error) {
       console.error(error);
 
       setError(
         error.response?.data?.message ||
-          "Greška prilikom generisanja AI preporuke.",
+          "Greška prilikom generisanja AI preporuka.",
       );
     } finally {
-      setGenerating(false);
+      setSubmitting(false);
     }
+  };
+
+  const handleShowFlights = (airportCode) => {
+    if (!airportCode) {
+      setError(
+        "Za ovu destinaciju trenutno nije povezan aerodrom, pa pretraga letova nije dostupna.",
+      );
+      return;
+    }
+
+    navigate(`/search-flights?from=BEG&to=${airportCode}`);
+  };
+
+  const renderQuestion = (question) => {
+    const selectedValue = answers[question.id];
+
+    if (question.type === "multiple") {
+      const selectedValues = selectedValue || [];
+
+      return (
+        <div className="question-options">
+          {question.options.map((option) => (
+            <label className="checkbox-option" key={option}>
+              <input
+                type="checkbox"
+                checked={selectedValues.includes(option)}
+                onChange={() => handleMultipleAnswer(question.id, option)}
+              />
+              {option}
+            </label>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <select
+        value={selectedValue || ""}
+        onChange={(event) =>
+          handleSingleAnswer(question.id, event.target.value)
+        }
+      >
+        <option value="">Izaberite odgovor</option>
+        {question.options.map((option) => (
+          <option value={option} key={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    );
   };
 
   return (
     <main className="page">
-      <section className="section-header">
-        <span className="hero-label">AI preporuka destinacija</span>
-
-        <h1>Pronađi destinaciju prema svojim preferencijama</h1>
-
-        <p>
-          Sistem postavlja pitanja o načinu putovanja, budžetu, klimi i
-          aktivnostima, a zatim na osnovu odgovora preporučuje najbolje
-          destinacije iz baze podataka.
-        </p>
+      <section className="admin-page-header">
+        <div>
+          <h1>AI preporuke destinacija</h1>
+          <p>
+            Odgovorite na nekoliko pitanja, a sistem će predložiti destinacije
+            koje najviše odgovaraju vašim preferencijama.
+          </p>
+        </div>
       </section>
 
-      <section className="ai-layout">
-        <div className="ai-card">
-          <div className="ai-card-header">
-            <div>
-              <h2>Upitnik za preporuku</h2>
-              <p>
-                Izvor pitanja:{" "}
-                <strong>
-                  {questionsSource === "openai"
-                    ? "OpenAI API"
-                    : "lokalni fallback"}
-                </strong>
-              </p>
-            </div>
-          </div>
+      <section className="content-card">
+        {message && <p className="success-message">{message}</p>}
+        {error && <p className="error-message">{error}</p>}
 
-          {loadingQuestions && <p>Učitavanje pitanja...</p>}
-
-          {!loadingQuestions && (
-            <form className="ai-form" onSubmit={handleSubmit}>
-              {questions.map((question, index) => (
-                <div className="question-card" key={question.id}>
-                  <h3>
-                    {index + 1}. {question.question}
-                  </h3>
-
-                  <div className="options-list">
-                    {question.options.map((option) => {
-                      const isMultiple = question.type === "multiple_choice";
-
-                      const checked = isMultiple
-                        ? (answers[question.id] || []).includes(option)
-                        : answers[question.id] === option;
-
-                      return (
-                        <label className="option-item" key={option}>
-                          <input
-                            type={isMultiple ? "checkbox" : "radio"}
-                            name={question.id}
-                            value={option}
-                            checked={checked}
-                            onChange={() =>
-                              isMultiple
-                                ? handleMultipleChoice(question.id, option)
-                                : handleSingleChoice(question.id, option)
-                            }
-                          />
-
-                          <span>{option}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-
-              {error && <p className="error-message">{error}</p>}
-
-              <button
-                className="primary-button full-width"
-                disabled={generating}
-              >
-                {generating ? "Generisanje preporuke..." : "Generiši preporuku"}
-              </button>
-            </form>
-          )}
-        </div>
-
-        <div className="ai-card">
-          <h2>Rezultat preporuke</h2>
-
-          {!result && (
-            <p className="muted-text">
-              Nakon popunjavanja upitnika, ovde će se prikazati preporučene
-              destinacije.
-            </p>
-          )}
-
-          {result && (
-            <div className="recommendation-result">
-              <p className="recommendation-summary">{result.summary}</p>
-
-              <div className="recommendation-list">
-                {result.recommendations.map((recommendation) => (
-                  <article
-                    className="recommendation-card"
-                    key={recommendation.id}
-                  >
-                    <div className="recommendation-header">
-                      <div>
-                        <h3>
-                          {recommendation.city}, {recommendation.country}
-                        </h3>
-                        <p>AI ocena poklapanja</p>
-                      </div>
-
-                      <span className="score-badge">
-                        {recommendation.score}/100
-                      </span>
-                    </div>
-
-                    <p>{recommendation.reason}</p>
-                  </article>
-                ))}
+        {loadingQuestions ? (
+          <p>Učitavanje pitanja...</p>
+        ) : (
+          <form className="auth-form" onSubmit={handleSubmit}>
+            {questions.map((question) => (
+              <div className="question-card" key={question.id}>
+                <label>
+                  {question.text}
+                  {renderQuestion(question)}
+                </label>
               </div>
-            </div>
-          )}
-        </div>
+            ))}
+
+            <button type="submit" disabled={submitting}>
+              {submitting ? "Generisanje..." : "Generiši preporuke"}
+            </button>
+          </form>
+        )}
       </section>
+
+      {result?.recommendations?.length > 0 && (
+        <section className="content-card">
+          <h2>Preporučene destinacije</h2>
+
+          <div className="recommendation-grid">
+            {result.recommendations.map((recommendation) => (
+              <article
+                className="recommendation-card"
+                key={`${recommendation.city}-${recommendation.country}`}
+              >
+                <h3>
+                  {recommendation.city}, {recommendation.country}
+                </h3>
+
+                <p>
+                  <strong>Poklapanje:</strong> {recommendation.score}%
+                </p>
+
+                <p>{recommendation.reason}</p>
+
+                {recommendation.airportCode ? (
+                  <p>
+                    <strong>Aerodrom:</strong> {recommendation.airportCode}
+                  </p>
+                ) : (
+                  <p>
+                    <strong>Aerodrom:</strong> nije povezan
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  className="small-button"
+                  onClick={() => handleShowFlights(recommendation.airportCode)}
+                >
+                  Prikaži letove
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

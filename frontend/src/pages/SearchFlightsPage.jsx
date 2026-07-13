@@ -1,296 +1,338 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
+function getTomorrowDate() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return tomorrow.toISOString().slice(0, 10);
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("sr-RS", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
 function SearchFlightsPage() {
-  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [airports, setAirports] = useState([]);
-  const [from, setFrom] = useState("BEG");
-  const [to, setTo] = useState("");
-  const [date, setDate] = useState("");
-  const [passengerCount, setPassengerCount] = useState(1);
   const [schedules, setSchedules] = useState([]);
+  const [formData, setFormData] = useState({
+    from: searchParams.get("from") || "BEG",
+    to: searchParams.get("to") || "",
+    date: searchParams.get("date") || getTomorrowDate(),
+    passengerCount: "1",
+  });
+
   const [loadingAirports, setLoadingAirports] = useState(true);
-  const [loadingFlights, setLoadingFlights] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [bookingScheduleId, setBookingScheduleId] = useState(null);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    const fetchAirports = async () => {
+    let ignore = false;
+
+    async function loadAirports() {
       try {
         const response = await api.get("/airports");
 
-        setAirports(response.data.data);
+        if (!ignore) {
+          setAirports(response.data.data || response.data || []);
+        }
       } catch (error) {
         console.error(error);
-        setError("Greška prilikom učitavanja aerodroma.");
-      } finally {
-        setLoadingAirports(false);
-      }
-    };
 
-    fetchAirports();
+        if (!ignore) {
+          setError(
+            error.response?.data?.message ||
+              "Greška prilikom učitavanja aerodroma.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingAirports(false);
+        }
+      }
+    }
+
+    loadAirports();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function autoSearchFromRecommendation() {
+      const to = searchParams.get("to");
+
+      if (!to) {
+        return;
+      }
+
+      try {
+        setSearching(true);
+        setMessage("");
+        setError("");
+
+        const response = await api.get("/flights/schedules/search", {
+          params: {
+            from: searchParams.get("from") || "BEG",
+            to,
+            date: searchParams.get("date") || getTomorrowDate(),
+          },
+        });
+
+        if (!ignore) {
+          setSchedules(response.data.data || []);
+        }
+      } catch (error) {
+        console.error(error);
+
+        if (!ignore) {
+          setError(
+            error.response?.data?.message ||
+              "Nema pronađenih letova za preporučenu destinaciju.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setSearching(false);
+        }
+      }
+    }
+
+    autoSearchFromRecommendation();
+
+    return () => {
+      ignore = true;
+    };
+  }, [searchParams]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setFormData((currentData) => ({
+      ...currentData,
+      [name]: value,
+    }));
+  };
 
   const handleSearch = async (event) => {
     event.preventDefault();
 
-    setError("");
-    setSuccess("");
-    setSchedules([]);
-    setLoadingFlights(true);
-
     try {
-      const params = new URLSearchParams();
+      setSearching(true);
+      setMessage("");
+      setError("");
+      setSchedules([]);
 
-      if (from) {
-        params.append("from", from);
-      }
+      const response = await api.get("/flights/schedules/search", {
+        params: {
+          from: formData.from,
+          to: formData.to,
+          date: formData.date,
+        },
+      });
 
-      if (to) {
-        params.append("to", to);
-      }
-
-      if (date) {
-        params.append("date", date);
-      }
-
-      const response = await api.get(`/flights/schedules/search?${params}`);
-
-      setSchedules(response.data.data);
+      setSchedules(response.data.data || []);
     } catch (error) {
       console.error(error);
-      setError("Greška prilikom pretrage letova.");
+
+      setError(
+        error.response?.data?.message || "Greška prilikom pretrage letova.",
+      );
     } finally {
-      setLoadingFlights(false);
+      setSearching(false);
     }
   };
 
   const handleBooking = async (scheduleId) => {
     if (!isAuthenticated) {
-      navigate("/login");
+      setError("Morate biti prijavljeni da biste rezervisali let.");
       return;
     }
 
-    setError("");
-    setSuccess("");
-    setBookingScheduleId(scheduleId);
-
     try {
-      await api.post("/bookings", {
+      setBookingScheduleId(scheduleId);
+      setMessage("");
+      setError("");
+
+      const response = await api.post("/bookings", {
         scheduleId,
-        passengerCount: Number(passengerCount),
+        passengerCount: Number(formData.passengerCount),
       });
 
-      setSuccess("Rezervacija je uspešno kreirana.");
-
-      setSchedules((previousSchedules) =>
-        previousSchedules.map((schedule) =>
-          schedule.id === scheduleId
-            ? {
-                ...schedule,
-                availableSeats:
-                  schedule.availableSeats - Number(passengerCount),
-              }
-            : schedule,
-        ),
-      );
+      setMessage(response.data.message);
     } catch (error) {
       console.error(error);
 
       setError(
-        error.response?.data?.message ||
-          "Greška prilikom kreiranja rezervacije.",
+        error.response?.data?.message || "Greška prilikom rezervacije leta.",
       );
     } finally {
       setBookingScheduleId(null);
     }
   };
 
-  const formatDateTime = (dateTime) => {
-    return new Date(dateTime).toLocaleString("sr-RS", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  };
-
   return (
     <main className="page">
-      <section className="section-header">
-        <span className="hero-label">Pretraga letova</span>
-        <h1>Pronađi odgovarajući let</h1>
-        <p>
-          Izaberi polazni i dolazni aerodrom. Podaci se učitavaju iz PostgreSQL
-          baze preko Node.js backend-a.
-        </p>
+      <section className="admin-page-header">
+        <div>
+          <h1>Pretraga letova</h1>
+          <p>
+            Izaberite polazni aerodrom, dolazni aerodrom i datum putovanja. Ako
+            ste došli sa AI preporuke, destinacija je automatski popunjena.
+          </p>
+        </div>
       </section>
 
-      <section className="search-panel">
-        <form className="search-form" onSubmit={handleSearch}>
-          <div className="form-group">
-            <label>Polazni aerodrom</label>
+      <section className="content-card">
+        {message && <p className="success-message">{message}</p>}
+        {error && <p className="error-message">{error}</p>}
+
+        <form className="auth-form" onSubmit={handleSearch}>
+          <label>
+            Polazni aerodrom
             <select
-              value={from}
-              onChange={(event) => setFrom(event.target.value)}
+              name="from"
+              value={formData.from}
+              onChange={handleChange}
               disabled={loadingAirports}
             >
-              <option value="">Svi polazni aerodromi</option>
-
+              <option value="">Izaberi polazni aerodrom</option>
               {airports.map((airport) => (
                 <option key={airport.id} value={airport.code}>
-                  {airport.city} ({airport.code}) - {airport.country}
+                  {airport.code} - {airport.city}, {airport.country}
                 </option>
               ))}
             </select>
-          </div>
+          </label>
 
-          <div className="form-group">
-            <label>Dolazni aerodrom</label>
+          <label>
+            Dolazni aerodrom
             <select
-              value={to}
-              onChange={(event) => setTo(event.target.value)}
+              name="to"
+              value={formData.to}
+              onChange={handleChange}
               disabled={loadingAirports}
             >
-              <option value="">Sve destinacije</option>
-
+              <option value="">Izaberi dolazni aerodrom</option>
               {airports.map((airport) => (
                 <option key={airport.id} value={airport.code}>
-                  {airport.city} ({airport.code}) - {airport.country}
+                  {airport.code} - {airport.city}, {airport.country}
                 </option>
               ))}
             </select>
-          </div>
+          </label>
 
-          <div className="form-group">
-            <label>Datum polaska</label>
+          <label>
+            Datum
             <input
               type="date"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
+              name="date"
+              value={formData.date}
+              onChange={handleChange}
             />
-          </div>
+          </label>
 
-          <div className="form-group">
-            <label>Broj putnika</label>
+          <label>
+            Broj putnika
             <input
               type="number"
+              name="passengerCount"
+              value={formData.passengerCount}
+              onChange={handleChange}
               min="1"
-              max="9"
-              value={passengerCount}
-              onChange={(event) => setPassengerCount(event.target.value)}
             />
-          </div>
+          </label>
 
-          <button className="primary-button" type="submit">
-            Pretraži letove
+          <button type="submit" disabled={searching}>
+            {searching ? "Pretraga..." : "Pretraži letove"}
           </button>
         </form>
-
-        {error && <p className="error-message">{error}</p>}
-        {success && <p className="success-message">{success}</p>}
       </section>
 
-      <section className="results-section">
+      <section className="content-card">
         <h2>Rezultati pretrage</h2>
 
-        {loadingFlights && <p>Učitavanje letova...</p>}
+        {searching ? (
+          <p>Pretraga letova...</p>
+        ) : schedules.length === 0 ? (
+          <p>Nema prikazanih letova. Pokrenite pretragu.</p>
+        ) : (
+          <div className="booking-list">
+            {schedules.map((schedule) => {
+              const flight = schedule.flight;
+              const origin = flight?.originAirport;
+              const destination = flight?.destinationAirport;
 
-        {!loadingFlights && schedules.length === 0 && (
-          <p className="muted-text">
-            Nema prikazanih letova. Izaberi kriterijume i klikni na pretragu.
-          </p>
+              return (
+                <article className="booking-card" key={schedule.id}>
+                  <div>
+                    <h2>
+                      {flight?.code || "Let"} — {origin?.code || "?"} →{" "}
+                      {destination?.code || "?"}
+                    </h2>
+
+                    <p>
+                      <strong>Avio-kompanija:</strong>{" "}
+                      {flight?.airline || "Nije dostupno"}
+                    </p>
+
+                    <p>
+                      <strong>Ruta:</strong> {origin?.city || "?"},{" "}
+                      {origin?.country || "?"} → {destination?.city || "?"},{" "}
+                      {destination?.country || "?"}
+                    </p>
+
+                    <p>
+                      <strong>Polazak:</strong>{" "}
+                      {formatDateTime(schedule.departureTime)}
+                    </p>
+
+                    <p>
+                      <strong>Dolazak:</strong>{" "}
+                      {formatDateTime(schedule.arrivalTime)}
+                    </p>
+
+                    <p>
+                      <strong>Dostupna mesta:</strong> {schedule.availableSeats}
+                    </p>
+
+                    <p>
+                      <strong>Cena po putniku:</strong> {schedule.basePrice}{" "}
+                      {schedule.currency}
+                    </p>
+                  </div>
+
+                  <div className="booking-actions">
+                    <button
+                      type="button"
+                      className="small-button"
+                      onClick={() => handleBooking(schedule.id)}
+                      disabled={bookingScheduleId === schedule.id}
+                    >
+                      {bookingScheduleId === schedule.id
+                        ? "Rezervisanje..."
+                        : "Rezerviši"}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         )}
-
-        <div className="flight-grid">
-          {schedules.map((schedule) => (
-            <article className="flight-card" key={schedule.id}>
-              <div className="flight-card-header">
-                <div>
-                  <h3>{schedule.flight.code}</h3>
-                  <p>{schedule.flight.airline}</p>
-                </div>
-
-                <span className="price-badge">
-                  {Number(schedule.basePrice).toFixed(2)} {schedule.currency}
-                </span>
-              </div>
-
-              <div className="route-box">
-                <div>
-                  <span>Od</span>
-                  <strong>
-                    {schedule.flight.originAirport.city} (
-                    {schedule.flight.originAirport.code})
-                  </strong>
-                </div>
-
-                <div className="route-line">→</div>
-
-                <div>
-                  <span>Do</span>
-                  <strong>
-                    {schedule.flight.destinationAirport.city} (
-                    {schedule.flight.destinationAirport.code})
-                  </strong>
-                </div>
-              </div>
-
-              <div className="flight-details">
-                <p>
-                  <strong>Polazak:</strong>{" "}
-                  {formatDateTime(schedule.departureTime)}
-                </p>
-
-                <p>
-                  <strong>Dolazak:</strong>{" "}
-                  {formatDateTime(schedule.arrivalTime)}
-                </p>
-
-                <p>
-                  <strong>Trajanje:</strong> {schedule.flight.durationMinutes}{" "}
-                  minuta
-                </p>
-
-                <p>
-                  <strong>Dostupna mesta:</strong> {schedule.availableSeats}
-                </p>
-
-                <p>
-                  <strong>Ukupno za {passengerCount} putnika:</strong>{" "}
-                  {(
-                    Number(schedule.basePrice) * Number(passengerCount)
-                  ).toFixed(2)}{" "}
-                  {schedule.currency}
-                </p>
-              </div>
-
-              <div className="booking-actions">
-                <button
-                  className="secondary-button"
-                  onClick={() => handleBooking(schedule.id)}
-                  disabled={
-                    bookingScheduleId === schedule.id ||
-                    schedule.availableSeats < Number(passengerCount)
-                  }
-                >
-                  {bookingScheduleId === schedule.id
-                    ? "Rezervacija..."
-                    : "Rezerviši let"}
-                </button>
-
-                {!isAuthenticated && (
-                  <p className="warning-message">
-                    Za rezervaciju je potrebna prijava.
-                  </p>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
       </section>
     </main>
   );

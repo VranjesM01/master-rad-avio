@@ -2,12 +2,11 @@ const recommendationService = require("../services/recommendation.service");
 
 const getQuestions = async (req, res) => {
   try {
-    const result = await recommendationService.getQuestions();
+    const questions = recommendationService.getRecommendationQuestions();
 
     res.json({
-      message: "Pitanja za preporuku su uspešno učitana.",
-      source: result.source,
-      data: result.questions,
+      message: "Pitanja su uspešno učitana.",
+      data: questions,
     });
   } catch (error) {
     console.error(error);
@@ -22,20 +21,14 @@ const createRecommendation = async (req, res) => {
   try {
     const { answers } = req.body;
 
-    if (!answers || Object.keys(answers).length === 0) {
-      return res.status(400).json({
-        message: "Odgovori korisnika su obavezni.",
-      });
-    }
-
-    const session = await recommendationService.getRecommendations({
-      userId: req.user?.id || null,
+    const result = await recommendationService.createRecommendation({
+      userId: req.user.id,
       answers,
     });
 
     res.status(201).json({
-      message: "Preporuke su uspešno generisane.",
-      data: session,
+      message: "AI preporuke su uspešno generisane.",
+      data: result,
     });
   } catch (error) {
     console.error(error);
@@ -48,7 +41,7 @@ const createRecommendation = async (req, res) => {
 
 const getMyRecommendations = async (req, res) => {
   try {
-    const sessions = await recommendationService.getUserRecommendationSessions(
+    const sessions = await recommendationService.getMyRecommendations(
       req.user.id,
     );
 

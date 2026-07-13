@@ -1,129 +1,205 @@
 const prisma = require("../config/prisma");
-const openai = require("../config/openai");
+
+let openaiClient = null;
+
+try {
+  const openaiModule = require("../config/openai");
+  openaiClient = openaiModule?.openai || openaiModule?.client || openaiModule;
+} catch (error) {
+  openaiClient = null;
+}
 
 const defaultQuestions = [
   {
-    id: "travel_style",
-    question: "Kakav tip putovanja najviše želiš?",
-    type: "single_choice",
+    id: "travelStyle",
+    text: "Kakav tip putovanja najviše želite?",
+    type: "single",
     options: [
-      "Grad i kultura",
       "More i plaža",
-      "Hrana i istorija",
+      "Grad i kultura",
+      "Istorija i muzeji",
       "Luksuz i kupovina",
-      "Opušten odmor",
+      "Opuštanje i lagano putovanje",
     ],
   },
   {
     id: "budget",
-    question: "Koliki budžet planiraš za putovanje?",
-    type: "single_choice",
+    text: "Koliki budžet planirate?",
+    type: "single",
     options: ["Nizak", "Srednji", "Visok"],
   },
   {
     id: "climate",
-    question: "Kakvu klimu preferiraš?",
-    type: "single_choice",
-    options: ["Topla", "Umerena", "Hladnija", "Veoma topla"],
+    text: "Kakvu klimu preferirate?",
+    type: "single",
+    options: ["Topla", "Umerena", "Hladna", "Veoma topla"],
   },
   {
     id: "activities",
-    question: "Šta ti je najvažnije na putovanju?",
-    type: "multiple_choice",
+    text: "Koje aktivnosti su vam važne?",
+    type: "multiple",
     options: [
-      "Muzeji",
       "Plaža",
+      "Muzeji",
+      "Hrana",
       "Noćni život",
       "Kupovina",
-      "Hrana",
-      "Istorijske znamenitosti",
-      "Moderan grad",
+      "Arhitektura",
+      "Šetnja",
     ],
   },
   {
     id: "duration",
-    question: "Koliko dana planiraš da putuješ?",
-    type: "single_choice",
-    options: ["2-3 dana", "4-6 dana", "7+ dana"],
+    text: "Koliko dana planirate putovanje?",
+    type: "single",
+    options: ["Vikend", "3-5 dana", "7 dana", "Više od 7 dana"],
   },
 ];
 
-const getQuestions = async () => {
-  if (!openai) {
-    return {
-      source: "fallback",
-      questions: defaultQuestions,
-    };
-  }
-
-  try {
-    const response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-      input: [
-        {
-          role: "system",
-          content:
-            "Ti generišeš pitanja za web aplikaciju koja preporučuje turističke destinacije. Vrati isključivo validan JSON.",
-        },
-        {
-          role: "user",
-          content:
-            'Generiši 5 pitanja za korisnika koji želi preporuku destinacije za putovanje. Svako pitanje mora imati id, question, type i options. type može biti single_choice ili multiple_choice. Vrati JSON u formatu {"questions": [...]}',
-        },
-      ],
-    });
-
-    const parsed = JSON.parse(response.output_text);
-
-    return {
-      source: "openai",
-      questions: parsed.questions,
-    };
-  } catch (error) {
-    console.error("OpenAI questions fallback:", error.message);
-
-    return {
-      source: "fallback",
-      questions: defaultQuestions,
-    };
-  }
+const normalizeText = (value) => {
+  return String(value || "")
+    .toLowerCase()
+    .trim();
 };
 
-const buildFallbackRecommendations = (destinations, answers) => {
-  const answerText = JSON.stringify(answers).toLowerCase();
+const buildAirportMap = async () => {
+  const airports = await prisma.airport.findMany();
+
+  const mapByCityCountry = new Map();
+  const mapByCity = new Map();
+
+  airports.forEach((airport) => {
+    const city = normalizeText(airport.city);
+    const country = normalizeText(airport.country);
+
+    mapByCityCountry.set(`${city}-${country}`, airport.code);
+    mapByCity.set(city, airport.code);
+  });
+
+  return {
+    mapByCityCountry,
+    mapByCity,
+  };
+};
+
+const findAirportCodeForDestination = (destination, airportMaps) => {
+  const city = normalizeText(destination.city);
+  const country = normalizeText(destination.country);
+
+  return (
+    airportMaps.mapByCityCountry.get(`${city}-${country}`) ||
+    airportMaps.mapByCity.get(city) ||
+    null
+  );
+};
+
+const buildReason = (destination, answerText, score) => {
+  const reasons = [];
+
+  const combined = normalizeText(
+    `${destination.description} ${destination.climate} ${destination.budgetLevel} ${destination.travelType}`,
+  );
+
+  if (
+    (answerText.includes("more") ||
+      answerText.includes("plaža") ||
+      answerText.includes("plaza")) &&
+    (combined.includes("beach") ||
+      combined.includes("ocean") ||
+      combined.includes("sea") ||
+      combined.includes("coast"))
+  ) {
+    reasons.push("odgovara želji za morem i plažom");
+  }
+
+  if (
+    (answerText.includes("kultura") ||
+      answerText.includes("muzej") ||
+      answerText.includes("istorija")) &&
+    (combined.includes("culture") ||
+      combined.includes("museum") ||
+      combined.includes("history") ||
+      combined.includes("architecture"))
+  ) {
+    reasons.push("ima jak kulturni i istorijski sadržaj");
+  }
+
+  if (
+    (answerText.includes("luksuz") || answerText.includes("kupovina")) &&
+    (combined.includes("luxury") || combined.includes("shopping"))
+  ) {
+    reasons.push("pogodna je za luksuz, kupovinu i moderan gradski turizam");
+  }
+
+  if (
+    answerText.includes("topla") &&
+    (combined.includes("warm") || combined.includes("hot"))
+  ) {
+    reasons.push("klima se uklapa u izabrane preferencije");
+  }
+
+  if (answerText.includes("umerena") && combined.includes("moderate")) {
+    reasons.push("ima umerenu klimu");
+  }
+
+  if (answerText.includes("nizak") && combined.includes("low")) {
+    reasons.push("odgovara nižem budžetu");
+  }
+
+  if (answerText.includes("srednji") && combined.includes("medium")) {
+    reasons.push("odgovara srednjem budžetu");
+  }
+
+  if (answerText.includes("visok") && combined.includes("high")) {
+    reasons.push("odgovara višem budžetu");
+  }
+
+  if (reasons.length === 0) {
+    return `Destinacija ${destination.city} je preporučena na osnovu ukupnog poklapanja sa unetim preferencijama.`;
+  }
+
+  return `Destinacija ${destination.city} je preporučena jer ${reasons.join(
+    ", ",
+  )}. Ukupno poklapanje je ${score}%.`;
+};
+
+const buildFallbackRecommendations = async (destinations, answers) => {
+  const airportMaps = await buildAirportMap();
+  const answerText = normalizeText(JSON.stringify(answers));
 
   return destinations
     .map((destination) => {
       let score = 50;
 
-      const combined =
-        `${destination.city} ${destination.country} ${destination.description} ${destination.climate} ${destination.budgetLevel} ${destination.travelType}`.toLowerCase();
+      const combined = normalizeText(
+        `${destination.city} ${destination.country} ${destination.description} ${destination.climate} ${destination.budgetLevel} ${destination.travelType}`,
+      );
 
-      if (answerText.includes("more") || answerText.includes("plaža")) {
+      if (
+        answerText.includes("more") ||
+        answerText.includes("plaža") ||
+        answerText.includes("plaza")
+      ) {
         if (
           combined.includes("beach") ||
           combined.includes("ocean") ||
-          combined.includes("more")
+          combined.includes("sea") ||
+          combined.includes("coast")
         ) {
           score += 25;
         }
       }
 
-      if (answerText.includes("kultura") || answerText.includes("muzej")) {
+      if (
+        answerText.includes("kultura") ||
+        answerText.includes("muzej") ||
+        answerText.includes("istorija")
+      ) {
         if (
           combined.includes("culture") ||
-          combined.includes("museums") ||
-          combined.includes("kulturu")
-        ) {
-          score += 20;
-        }
-      }
-
-      if (answerText.includes("istorija") || answerText.includes("hrana")) {
-        if (
+          combined.includes("museum") ||
           combined.includes("history") ||
-          combined.includes("food") ||
-          combined.includes("istorije")
+          combined.includes("architecture")
         ) {
           score += 20;
         }
@@ -135,37 +211,133 @@ const buildFallbackRecommendations = (destinations, answers) => {
         }
       }
 
-      if (answerText.includes("visok")) {
-        if (destination.budgetLevel === "high") {
-          score += 10;
+      if (answerText.includes("topla")) {
+        if (combined.includes("warm") || combined.includes("hot")) {
+          score += 15;
         }
       }
 
-      if (answerText.includes("srednji")) {
-        if (destination.budgetLevel === "medium") {
-          score += 10;
+      if (answerText.includes("umerena")) {
+        if (combined.includes("moderate")) {
+          score += 15;
         }
       }
 
       if (answerText.includes("nizak")) {
-        if (destination.budgetLevel === "low") {
-          score += 10;
+        if (combined.includes("low")) {
+          score += 15;
         }
       }
+
+      if (answerText.includes("srednji")) {
+        if (combined.includes("medium")) {
+          score += 15;
+        }
+      }
+
+      if (answerText.includes("visok")) {
+        if (combined.includes("high")) {
+          score += 15;
+        }
+      }
+
+      score = Math.min(score, 100);
 
       return {
         destinationId: destination.id,
         city: destination.city,
         country: destination.country,
-        score: Math.min(score, 100),
-        reason: `Destinacija ${destination.city} odgovara na osnovu unetih preferencija i karakteristika destinacije iz baze.`,
+        score,
+        airportCode: findAirportCodeForDestination(destination, airportMaps),
+        reason: buildReason(destination, answerText, score),
       };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
 };
 
-const getRecommendations = async ({ userId, answers }) => {
+const tryOpenAIRecommendations = async (destinations, answers) => {
+  if (!openaiClient || !openaiClient.responses?.create) {
+    return null;
+  }
+
+  try {
+    const destinationList = destinations.map((destination) => ({
+      id: destination.id,
+      city: destination.city,
+      country: destination.country,
+      description: destination.description,
+      climate: destination.climate,
+      budgetLevel: destination.budgetLevel,
+      travelType: destination.travelType,
+    }));
+
+    const response = await openaiClient.responses.create({
+      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      input: [
+        {
+          role: "system",
+          content:
+            "You recommend travel destinations. Return only valid JSON array with three objects. Each object must have destinationId, city, country, score, reason.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            answers,
+            availableDestinations: destinationList,
+          }),
+        },
+      ],
+    });
+
+    const text =
+      response.output_text || response.output?.[0]?.content?.[0]?.text || "";
+
+    if (!text) {
+      return null;
+    }
+
+    const parsed = JSON.parse(text);
+
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+
+    const airportMaps = await buildAirportMap();
+
+    return parsed
+      .slice(0, 3)
+      .map((item) => ({
+        destinationId: item.destinationId || null,
+        city: item.city,
+        country: item.country,
+        score: Math.min(Number(item.score) || 70, 100),
+        reason:
+          item.reason ||
+          `Destinacija ${item.city} odgovara na osnovu unetih preferencija.`,
+        airportCode: findAirportCodeForDestination(item, airportMaps),
+      }))
+      .filter((item) => item.city && item.country);
+  } catch (error) {
+    console.error(
+      "OpenAI preporuka nije uspela, koristi se fallback:",
+      error.message,
+    );
+    return null;
+  }
+};
+
+const getRecommendationQuestions = () => {
+  return defaultQuestions;
+};
+
+const createRecommendation = async ({ userId, answers }) => {
+  if (!answers || Object.keys(answers).length === 0) {
+    const error = new Error("Odgovori korisnika su obavezni.");
+    error.statusCode = 400;
+    throw error;
+  }
+
   const destinations = await prisma.destination.findMany({
     orderBy: {
       city: "asc",
@@ -173,92 +345,25 @@ const getRecommendations = async ({ userId, answers }) => {
   });
 
   if (destinations.length === 0) {
-    const error = new Error("U bazi nema destinacija za preporuku.");
-    error.statusCode = 400;
+    const error = new Error("Nema destinacija u bazi.");
+    error.statusCode = 404;
     throw error;
   }
 
-  let recommendationResult;
+  let recommendations = await tryOpenAIRecommendations(destinations, answers);
 
-  if (openai) {
-    try {
-      const destinationsForPrompt = destinations.map((destination) => ({
-        id: destination.id,
-        city: destination.city,
-        country: destination.country,
-        description: destination.description,
-        climate: destination.climate,
-        budgetLevel: destination.budgetLevel,
-        travelType: destination.travelType,
-      }));
-
-      const response = await openai.responses.create({
-        model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-        input: [
-          {
-            role: "system",
-            content:
-              "Ti si AI modul za preporuku turističkih destinacija u web aplikaciji za avionske karte. Koristi samo destinacije koje su prosleđene iz baze. Vrati isključivo validan JSON.",
-          },
-          {
-            role: "user",
-            content: JSON.stringify({
-              task: "Na osnovu korisničkih odgovora rangiraj najbolje 3 destinacije.",
-              answers,
-              availableDestinations: destinationsForPrompt,
-              requiredOutput: {
-                summary: "kratak opis preporuke",
-                recommendations: [
-                  {
-                    destinationId: "id destinacije iz baze",
-                    city: "grad",
-                    country: "država",
-                    score: "broj od 0 do 100",
-                    reason: "objašnjenje zašto je destinacija preporučena",
-                  },
-                ],
-              },
-            }),
-          },
-        ],
-      });
-
-      const parsed = JSON.parse(response.output_text);
-
-      recommendationResult = {
-        summary: parsed.summary,
-        recommendations: parsed.recommendations.map((item) => ({
-          destinationId: Number(item.destinationId),
-          city: item.city,
-          country: item.country,
-          score: Number(item.score),
-          reason: item.reason,
-        })),
-      };
-    } catch (error) {
-      console.error("OpenAI recommendations fallback:", error.message);
-
-      recommendationResult = {
-        summary:
-          "Preporuke su generisane lokalnim fallback algoritmom jer OpenAI odgovor nije bio dostupan.",
-        recommendations: buildFallbackRecommendations(destinations, answers),
-      };
-    }
-  } else {
-    recommendationResult = {
-      summary:
-        "Preporuke su generisane lokalnim fallback algoritmom jer OpenAI API ključ nije podešen.",
-      recommendations: buildFallbackRecommendations(destinations, answers),
-    };
+  if (!recommendations || recommendations.length === 0) {
+    recommendations = await buildFallbackRecommendations(destinations, answers);
   }
 
   const session = await prisma.recommendationSession.create({
     data: {
       userId: userId ? Number(userId) : null,
       answers,
-      summary: recommendationResult.summary,
+      summary:
+        "Preporuke su generisane na osnovu korisničkih preferencija i dostupnih destinacija.",
       recommendations: {
-        create: recommendationResult.recommendations.map((recommendation) => ({
+        create: recommendations.map((recommendation) => ({
           destinationId: recommendation.destinationId || null,
           city: recommendation.city,
           country: recommendation.country,
@@ -268,19 +373,22 @@ const getRecommendations = async ({ userId, answers }) => {
       },
     },
     include: {
-      recommendations: {
-        orderBy: {
-          score: "desc",
-        },
-      },
+      recommendations: true,
     },
   });
 
-  return session;
+  return {
+    id: session.id,
+    userId: session.userId,
+    answers: session.answers,
+    summary: session.summary,
+    createdAt: session.createdAt,
+    recommendations,
+  };
 };
 
-const getUserRecommendationSessions = async (userId) => {
-  return await prisma.recommendationSession.findMany({
+const getMyRecommendations = async (userId) => {
+  const sessions = await prisma.recommendationSession.findMany({
     where: {
       userId: Number(userId),
     },
@@ -292,13 +400,29 @@ const getUserRecommendationSessions = async (userId) => {
       },
     },
     orderBy: {
-      createdAt: "desc",
+      id: "desc",
     },
   });
+
+  const airportMaps = await buildAirportMap();
+
+  return sessions.map((session) => ({
+    ...session,
+    recommendations: session.recommendations.map((recommendation) => ({
+      ...recommendation,
+      airportCode: findAirportCodeForDestination(recommendation, airportMaps),
+    })),
+  }));
 };
 
 module.exports = {
-  getQuestions,
-  getRecommendations,
-  getUserRecommendationSessions,
+  getRecommendationQuestions,
+  getQuestions: getRecommendationQuestions,
+  getDefaultQuestions: getRecommendationQuestions,
+
+  createRecommendation,
+  generateRecommendations: createRecommendation,
+
+  getMyRecommendations,
+  getMyRecommendationSessions: getMyRecommendations,
 };
