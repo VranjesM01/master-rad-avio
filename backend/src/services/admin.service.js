@@ -293,6 +293,39 @@ const deleteSchedule = async (id) => {
   });
 };
 
+/* =========================
+   BOOKING ADMIN LOGIC
+========================= */
+
+const getAllBookings = async () => {
+  return await prisma.booking.findMany({
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+        },
+      },
+      schedule: {
+        include: {
+          flight: {
+            include: {
+              originAirport: true,
+              destinationAirport: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      id: "desc",
+    },
+  });
+};
+
 module.exports = {
   getAllAirports,
   createAirport,
@@ -313,4 +346,6 @@ module.exports = {
   createSchedule,
   updateSchedule,
   deleteSchedule,
+
+  getAllBookings,
 };

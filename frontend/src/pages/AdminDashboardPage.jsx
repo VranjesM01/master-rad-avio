@@ -7,8 +7,8 @@ function AdminDashboardPage() {
         <h1>Admin panel</h1>
         <p>
           Administratorski deo aplikacije omogućava upravljanje osnovnim
-          podacima sistema, kao što su aerodromi, destinacije, letovi i termini
-          letova.
+          podacima sistema, kao što su aerodromi, destinacije, letovi, termini
+          letova i rezervacije korisnika.
         </p>
       </section>
 
@@ -31,6 +31,11 @@ function AdminDashboardPage() {
         <Link className="admin-card" to="/admin/schedules">
           <h2>Termini letova</h2>
           <p>Upravljanje konkretnim terminima letova.</p>
+        </Link>
+
+        <Link className="admin-card" to="/admin/bookings">
+          <h2>Rezervacije</h2>
+          <p>Pregled svih korisničkih rezervacija i njihovih statusa.</p>
         </Link>
       </section>
     </main>

@@ -577,6 +577,27 @@ const deleteSchedule = async (req, res) => {
   }
 };
 
+/* =========================
+   BOOKING CONTROLLERS
+========================= */
+
+const getAllBookings = async (req, res) => {
+  try {
+    const bookings = await adminService.getAllBookings();
+
+    res.json({
+      message: "Rezervacije su uspešno učitane.",
+      data: bookings,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "Greška prilikom učitavanja rezervacija.",
+    });
+  }
+};
+
 module.exports = {
   getAllAirports,
   createAirport,
@@ -597,4 +618,6 @@ module.exports = {
   createSchedule,
   updateSchedule,
   deleteSchedule,
+
+  getAllBookings,
 };

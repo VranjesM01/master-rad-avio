@@ -20,6 +20,8 @@ const {
   createSchedule,
   updateSchedule,
   deleteSchedule,
+
+  getAllBookings,
 } = require("../controllers/admin.controller");
 
 const {
@@ -55,5 +57,8 @@ router.get("/schedules", getAllSchedules);
 router.post("/schedules", createSchedule);
 router.put("/schedules/:id", updateSchedule);
 router.delete("/schedules/:id", deleteSchedule);
+
+/* Booking admin routes */
+router.get("/bookings", getAllBookings);
 
 module.exports = router;

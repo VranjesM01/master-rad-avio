@@ -12,11 +12,13 @@ import ProfilePage from "./pages/ProfilePage";
 import MyBookingsPage from "./pages/MyBookingsPage";
 import AIRecommendationPage from "./pages/AIRecommendationPage";
 import MyRecommendationsPage from "./pages/MyRecommendationsPage";
+
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminAirportsPage from "./pages/AdminAirportsPage";
 import AdminDestinationsPage from "./pages/AdminDestinationsPage";
 import AdminFlightsPage from "./pages/AdminFlightsPage";
 import AdminSchedulesPage from "./pages/AdminSchedulesPage";
+import AdminBookingsPage from "./pages/AdminBookingsPage";
 
 import { AuthProvider } from "./context/AuthContext";
 
@@ -111,6 +113,15 @@ function App() {
             element={
               <AdminRoute>
                 <AdminSchedulesPage />
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/bookings"
+            element={
+              <AdminRoute>
+                <AdminBookingsPage />
               </AdminRoute>
             }
           />
